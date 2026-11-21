@@ -6,7 +6,26 @@ const routes = require("./routes/ticketRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = "mongodb://127.0.0.1:27017/true_automotives";
+const MONGO_URI = process.env.MONGO_URI;
+
+// Clear message in the logs if the variable did not reach the server
+console.log(
+  "MONGO_URI set?",
+  MONGO_URI ? "YES (starts with " + MONGO_URI.slice(0, 14) + ")" : "NO",
+);
+console.log(
+  "Env keys seen:",
+  Object.keys(process.env)
+    .filter((k) => /MONGO|CLIENT|PORT/i.test(k))
+    .join(", ") || "none",
+);
+
+if (!MONGO_URI && process.env.RENDER) {
+  console.error(
+    "MONGO_URI is missing on Render. Add it in Environment tab of THIS service and redeploy.",
+  );
+  process.exit(1);
+}
 
 app.use(
   cors({
@@ -22,7 +41,6 @@ app.get("/api/health", (req, res) =>
 );
 app.use("/api", routes);
 
-// 404 + error handlers
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 app.use((err, req, res, next) => {
   console.error(err);
@@ -30,12 +48,12 @@ app.use((err, req, res, next) => {
 });
 
 mongoose
-  .connect(MONGO_URI)
+  .connect(MONGO_URI || "mongodb://127.0.0.1:27017/true_automotives", {
+    serverSelectionTimeoutMS: 15000,
+  })
   .then(() => {
     console.log("MongoDB connected");
-    app.listen(PORT, () =>
-      console.log(`Server running on http://localhost:${PORT}`),
-    );
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err.message);
